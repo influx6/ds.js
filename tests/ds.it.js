@@ -1,6 +1,6 @@
 module.exports = (function(matcher,ds){
     
-    var list = ds.List.make(4);
+    var list = ds.List.make();
 
     matcher.scoped('new list').obj(list).isObject();
 
@@ -17,7 +17,7 @@ module.exports = (function(matcher,ds){
     var it = list.iterator();
     var it2 = list.iterator();
     
-    it.events.on('begin',function(data,node){
+    it.events.once('begin',function(data,node){
       matcher.scoped('forward iterator begins with 2').obj(it.current()).is(2);
     });
 
@@ -25,23 +25,97 @@ module.exports = (function(matcher,ds){
       matcher.scoped('forward iterator').obj(it.current()).isNumber();
     });
 
-    it.events.on('end',function(data,node){
+    it.events.once('end',function(data,node){
       matcher.scoped('forward iterator ends with 3').obj(it.current()).is(3);
     });
 
-    it2.events.on('begin',function(data,node){
+    it2.events.once('begin',function(data,node){
       matcher.scoped('backward iterator begins with 3').obj(it2.current()).is(3);
     });
 
     it2.events.on('node',function(data,node){
-      matcher.scoped('backward iterator').obj(it2.current()).isNumber();
+      matcher.scoped('backward iterator').obj(data).isNumber();
     });
 
-    it2.events.on('end',function(data,node){
+    it2.events.once('end',function(data,node){
       matcher.scoped('backward iterator ends with 2').obj(it2.current()).is(2);
     });
 
-    while(it.moveNext() && it2.movePrevious());
+    while(it.moveNext() || it2.movePrevious());
     
+    matcher.scoped('new appends');
 
+    list.append(3);
+    list.append(3);
+    list.append(3);
+    list.append(4);
+    list.append(6);
+    list.append(6);
+    list.append(6);
+    list.append(6);
+    list.append(5);
+    
+    var res = it2.findAll(6);
+    
+    matcher.scoped('cache length');
+    
+    matcher.obj(it2.cache.target).length(1);
+    matcher.obj(it2.cache.target['6']).isValid().length(4);
+
+    matcher.scoped('removing node');
+    
+    it2.events.once('remove',function(data,node){
+      matcher.obj(data).is(5);
+      matcher.obj(node).isValid().isInstanceOf(ds.Node).isInstanceOf(ds.ListNode);
+    });
+
+    it2.remove(5);
+
+    it2.events.once('remove',function(data,node){
+      matcher.obj(data).is(3);
+      matcher.obj(node).isValid().isInstanceOf(ds.Node).isInstanceOf(ds.ListNode);
+    });
+
+    
+    it2.remove(3);
+
+    it2.events.once('removeAll',function(res){
+      matcher.obj(res).isArray().length(4);
+      matcher.obj(res[0].data).is(6).isNumber();
+      matcher.obj(res[1].data).is(6).isNumber();
+      matcher.obj(res[2].data).is(6).isNumber();
+      matcher.obj(res[3].data).is(6).isNumber();
+    });
+
+    it2.removeAll(6);
+    
+    matcher.scoped('list size after removals').obj(list.size()).is(6);
+
+    matcher.scoped('iterator append');
+    
+    it2.reset();
+
+    it2.append(20);
+
+    matcher.obj(list.tail.data).is(20);
+
+    it2.moveNext(); it2.moveNext();
+    
+    it2.append(30);
+
+    matcher.scoped('append after movenext').obj(it2.currentNode().right.data).is(30);
+    
+    it2.prepend(10);
+
+    matcher.scoped('prepend after movenext').obj(it2.currentNode().left.data).is(10);
+
+    var res = it2.findAll(6);
+    
+    matcher.scoped('cache length after remove');
+    matcher.obj(it2.cache.target).length(0);
+
+    it2.find(3);
+    
+    matcher.obj(it2.cache.target).length(1).lessThanLength(2);
+  
 });

@@ -22,9 +22,27 @@ module.exports = (function(matcher,ds){
 
     list.append(6);
 
-    matcher.scoped('last item shouldnt be 6').obj(list.tail.data).isNot(6);
+    matcher.scoped('last item should be 6').obj(list.tail.data).isNot(6);
 
     matcher.scoped('list is full').obj(list.isFull()).is(true);
 
+    matcher.scoped('removing head');
+    
+
+    list.removeHead();
+
+    matcher.obj(list.root.data).is(1);
+
+    list.removeHead();
+
+    matcher.obj(list.root.data).is(3);
+
+    list.removeHead();
+
+    matcher.obj(list.root.data).is(5);
+    
+    list.removeHead();
+    
+    matcher.obj(list.isEmpty()).is(true);
 
 });
