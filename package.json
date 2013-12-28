@@ -1,6 +1,6 @@
 {
-  "name": "ds",
   "version": "0.0.1",
+  "name": "ds",
   "description": "collection of rich data structures",
   "main": "./lib/ds.js",
   "directories": {
@@ -10,8 +10,6 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies":{
-    "em.js":"0.x.x",
-    "appstack":"0.x.x"
   },
   "repository": {
     "type": "git",

@@ -1,6 +1,8 @@
 module.exports = (function(matcher,ds){
     
     var list = ds.List.make(4);
+
+    console.log(list);
     
     matcher.obj(list).isObject();
 

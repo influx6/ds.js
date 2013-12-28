@@ -6,22 +6,26 @@ require('em')('ds',function(em){
   
   this.exports = ds;
   
-  ds.DS = as.Class.create('SuperDS',{
+  ds.DS = as.Class.create({
      init: function(){},
      isDS: function(){ return true; }
   });
 
-  ds.Node = as.Class.create('Node',{
+  ds.Node = as.Class.create({
     init: function(data){ this.data = data; this._marker = false; },
     mark: function(){ this._marker = true; },
     unmark: function(){ this._marker = false },
     marked: function(){ return (this._marker === true); },
+    reset: function(){ this.unmark(); this.data = null; }
   });
 
-  ds.ListNode = ds.Node.extend('ListNode',{
+  ds.ListNode = ds.Node.extend({
     left:null,
     right: null,
     root: null,
+    init: function(d){
+      this.Super(d);
+    },
     onMark: function(){
       this.mark();
       if(this.left) this.left.onMark();
@@ -32,9 +36,15 @@ require('em')('ds',function(em){
       if(this.left) this.left.offMark();
       if(this.right) this.right.offMark();
     },
+    reset: function(){
+      this.Super();
+      if(this.left) this.left.reset();
+      if(this.right) this.right.reset();
+      this.left = this.right = this.root = null;
+    }
   });
 
-  ds.TreeNode = ds.Node.extend('TreeNode',{
+  ds.TreeNode = ds.Node.extend({
     left:null,
     right: null,
     root: null,
@@ -42,230 +52,233 @@ require('em')('ds',function(em){
     height: function(){ }
   });
   
-  ds.List  = ds.DS.extend('List',{
+  ds.List  = ds.DS.extend({
     init: function(max){
       this.max = max;
       this.root = null;
       this.tail = null;
       this.counter = as.Counter();
       this.dit = this.iterator();
-    },
-    size: function(){ return this.counter.count(); },
-    isEmpty: function(){
-       return ((this.root && this.tail) === null);
-    },
-    isFull: function(){
-      return (this.counter.count() >= this.max && this.max !== null); 
-    },
-    iterator: function(){
-      return ds.ListIterator.make(this);
-    },
-    add: function(data){
-      if(this.isFull()) return;
-      if(this.isEmpty()){
-        this.root = this.tail = ds.ListNode.make(data);
-        this.root.left = this.tail;
+      },
+      size: function(){ return this.counter.count(); },
+      isEmpty: function(){
+         return ((this.root && this.tail) === null);
+      },
+      isFull: function(){
+        return (this.counter.count() >= this.max && this.max !== null); 
+      },
+      iterator: function(){
+        return ds.ListIterator.make(this);
+      },
+      clear: function(){
+        this.root.reset();
+      },
+      add: function(data){
+        if(this.isFull()) return;
+        if(this.isEmpty()){
+          this.root = this.tail = ds.ListNode.make(data);
+          this.root.left = this.tail;
+          this.tail.right = this.root;
+          this.counter.up();
+          return this.tail;
+        }
+        
+        var cur = this.tail;
+        var left = cur.left;
+        var right = cur.right;
+
+        this.tail = ds.ListNode.make(data);
         this.tail.right = this.root;
+        this.tail.left = cur;
+
+        cur.right = this.tail;
+        
+        this.root.left = this.tail;
+        
+
         this.counter.up();
+
         return this.tail;
-      }
-      
-      var cur = this.tail;
-      var left = cur.left;
-      var right = cur.right;
+      },
+      append: function(d){ return this.add(d); },
+      prepend: function(data){
+        if(this.isFull()) return;
+        if(this.isEmpty()){
+          this.root = this.tail = ds.ListNode.make(data);
+          this.root.left = this.tail;
+          this.tail.right = this.root;
+          this.counter.up();
+          return this.root;
+        }
 
-      this.tail = ds.ListNode.make(data);
-      this.tail.right = this.root;
-      this.tail.left = cur;
+        var cur = this.root;
+        var left = cur.left; 
+        var  right = cur.right; 
 
-      cur.right = this.tail;
-      
-      this.root.left = this.tail;
-      
+        this.root = ds.ListNode.make(data);
 
-      this.counter.up();
-
-      return this.tail;
-    },
-    append: function(d){ return this.add(d); },
-    prepend: function(data){
-      if(this.isFull()) return;
-      if(this.isEmpty()){
-        this.root = this.tail = ds.ListNode.make(data);
         this.root.left = this.tail;
+        this.root.right = cur;
+
         this.tail.right = this.root;
+        
+        cur.left = this.root;
+
         this.counter.up();
+
         return this.root;
+      },
+      removeHead: function(){
+        if(this.isEmpty()) return;
+
+        var root = this.root;
+        left = root.left;
+        right = root.right;
+        
+        if(root === this.tail){
+          this.tail = this.root = null; 
+          this.counter.blow();
+        }
+        else{
+          this.root = right;
+          this.root.left = left;
+          left.right = right;
+          root.left = root.right = null;
+        }
+        
+
+        this.counter.down();
+        return root;
+      },
+      removeTail: function(){
+        if(this.isEmpty()) return;
+
+        var tail = this.tail;
+        left = tail.left;
+        right = tail.right;
+        
+        if(tail === this.root){
+          this.tail = this.root = null;
+          this.counter.blow();
+        } 
+        else{
+          this.tail = left;
+          this.tail.right = right;
+          right.left = this.tail;
+          tail.left = tail.right = null;
+        }
+
+
+        this.counter.down();
+        return tail;
+      },
+      cascadeBy: function(fn){
+        return this.dit.cascadeBy(fn);
       }
-
-      var cur = this.root;
-      var left = cur.left; 
-      var  right = cur.right; 
-
-      this.root = ds.ListNode.make(data);
-
-      this.root.left = this.tail;
-      this.root.right = cur;
-
-      this.tail.right = this.root;
       
-      cur.left = this.root;
+    });
 
-      this.counter.up();
-
-      return this.root;
-    },
-    removeHead: function(){
-      if(this.isEmpty()) return;
-
-      var root = this.root;
-      left = root.left;
-      right = root.right;
-      
-      if(root === this.tail){
-        this.tail = this.root = null; 
-        this.counter.blow();
-      }
-      else{
-        this.root = right;
-        this.root.left = left;
-        left.right = right;
-        root.left = root.right = null;
-      }
-      
-
-      this.counter.down();
-      return root;
-    },
-    removeTail: function(){
-      if(this.isEmpty()) return;
-
-      var tail = this.tail;
-      left = tail.left;
-      right = tail.right;
-      
-      if(tail === this.root){
-        this.tail = this.root = null;
-        this.counter.blow();
-      } 
-      else{
-        this.tail = left;
-        this.tail.right = right;
-        right.left = this.tail;
-        tail.left = tail.right = null;
-      }
-
-
-      this.counter.down();
-      return tail;
-    },
-    cascadeBy: function(fn){
-      return this.dit.cascadeBy(fn);
-    }
-    
-  });
-
-  ds.Iterator = as.Class.create('Iterator',{
-    status:{ reset:0, ready: 1,moving:2, done: -1},
-    init: function(d){
-      if(!util.instanceOf(d,ds.DS)) throw "You must supply a correct structure object";
-      this.ds = d;
-      this.state = 0;
-      this.track = null;
-      this.events = as.Events();
-      this.cache = as.HashHelpers({});
-
-      // this.events.set('error','fireRemove');
-      // this.events.set('begin','fireRemove');
-      // this.events.set('node');
-      // this.events.set('end','fireRemove');
-      // this.events.set('append');
-      // this.events.set('prepend');
-      // this.events.set('remove');
-      // this.events.set('removeAll');
-      // this.events.set('done');
-    },
-    checkCache: function(key){
-      return this.cache.get(key);
-    },
-    cacheIt: function(key,find){
-      this.cache.add(key,find);
-    },
-    current: function(){
-      return this.track.data;
-    },
-    currentNode: function(){
-      return this.track;
-    },
-    move: function(pre,cur,post){
-      if(this.state === -1) this.reset();
-      if(this.ds === null || this.ds.root === null){
-        this.events.emit('error',new Error('List is not initialized or has no nodes!'));
-        return false;
-      } 
-
-      if(pre(this.ds,this)){ 
-        this.state = 1;
-        this.events.emit('begin',this.current(),this.currentNode()); 
-        this.events.emit('node',this.current(),this.currentNode()); 
-        return true; 
-      }
-      if(cur(this.ds,this)){ 
-        this.state = 2;
-        this.events.emit('node',this.current(),this.currentNode()); 
-        return true; 
-      }
-      if(post(this.ds,this)){ 
-        this.state = -1;
-        return true; 
-      }
-
-      this.events.emit('end',this.current(),this.currentNode()); 
-      this.reset();
-      this.events.emit('done');
-      return false;
-    },
-    moveNext: function(){},
-    movePrevious: function(){},
-    reset: function(){
+    ds.Iterator = as.Class.create({
+      status:{ reset:0, ready: 1,moving:2, done: -1},
+      init: function(d){
+        if(!util.instanceOf(d,ds.DS)) throw "You must supply a correct structure object";
+        this.ds = d;
         this.state = 0;
-        this.track =  null;
-        this.events.emit('reset');
-        return false;
-    },
-    prepend: function(item){
-      if(util.instanceOf(item,ds.Node)) 
-        return  this.events.emit('prepend',item.data,item);
-      return this.events.emit('prepend',item);
-    },
-    append: function(item){
-      if(util.instanceOf(item,ds.Node)) 
-        return  this.events.emit('append',item.data,item);
-      return this.events.emit('append',item);
-    },
-    remove: function(item){
-      if(util.instanceOf(item,ds.Node)) 
-        return  this.events.emit('remove',item.data,item);
-      return this.events.emit('remove',item);
-    },
-    removeAll: function(item){
-      if(util.instanceOf(item,ds.Node)) 
-        return  this.events.emit('removeAll',item.data,item);
-      return this.events.emit('removeAll',item);
-    },
-    find: function(item){
-      if(util.instanceOf(item,ds.Node)) 
-        return  this.events.emit('find',item.data,item);
-      return this.events.emit('find',item);
-    },
-    findAll: function(item){
-      if(util.instanceOf(item,ds.Node)) 
-        return  this.events.emit('findAll',item.data,item);
-      return this.events.emit('findAll',item);
-    },
-  });
+        this.track = null;
+        this.events = as.Events();
+        this.cache = as.HashHelpers({});
 
-  ds.ListIterator = ds.Iterator.extend('ListIterator',{
+      },
+      checkCache: function(key){
+        return this.cache.get(key);
+      },
+      cacheIt: function(key,find){
+        this.cache.add(key,find);
+      },
+      current: function(){
+        if(this.track === null) return;
+        return this.track.data;
+      },
+      currentNode: function(){
+        return this.track;
+      },
+      move: function(pre,cur,post){
+        if(this.state === -1) this.reset();
+        if(this.ds === null || this.ds.root === null){
+          this.events.emit('error',new Error('List is not initialized or has no nodes!'));
+          return false;
+        } 
+
+        if(pre(this.ds,this)){ 
+          this.state = 1;
+          this.events.emit('begin',this.current(),this.currentNode()); 
+          this.events.emit('node',this.current(),this.currentNode()); 
+          return true; 
+        }
+        if(cur(this.ds,this)){ 
+          this.state = 2;
+          this.events.emit('node',this.current(),this.currentNode()); 
+          return true; 
+        }
+        if(post(this.ds,this)){ 
+          this.state = -1;
+          return true; 
+        }
+
+        this.events.emit('end',this.current(),this.currentNode()); 
+        this.reset();
+        this.events.emit('done');
+        return false;
+      },
+      moveNext: function(){},
+      movePrevious: function(){},
+      reset: function(){
+          this.state = 0;
+          this.track =  null;
+          this.events.emit('reset');
+          return false;
+      },
+      close: function(){
+        this.reset();
+        this.events.off('all');
+        this.events = null;
+      },
+      prepend: function(item){
+        if(util.instanceOf(item,ds.Node)) 
+          return  this.events.emit('prepend',item.data,item);
+        return this.events.emit('prepend',item);
+      },
+      append: function(item){
+        if(util.instanceOf(item,ds.Node)) 
+          return  this.events.emit('append',item.data,item);
+        return this.events.emit('append',item);
+      },
+      remove: function(item){
+        if(util.instanceOf(item,ds.Node)) 
+          return  this.events.emit('remove',item.data,item);
+        return this.events.emit('remove',item);
+      },
+      removeAll: function(item){
+        if(util.instanceOf(item,ds.Node)) 
+          return  this.events.emit('removeAll',item.data,item);
+        return this.events.emit('removeAll',item);
+      },
+      find: function(item){
+        if(util.instanceOf(item,ds.Node)) 
+          return  this.events.emit('find',item.data,item);
+        return this.events.emit('find',item);
+      },
+      findAll: function(item){
+        if(util.instanceOf(item,ds.Node)) 
+          return  this.events.emit('findAll',item.data,item);
+        return this.events.emit('findAll',item);
+      },
+    });
+
+    ds.ListIterator = ds.Iterator.extend({
+       init: function(d){
+        this.Super(d);
+     },
      moveNext:  function(){
         return this.move(function(ds,list){
             if(list.track === null){
@@ -323,7 +336,7 @@ require('em')('ds',function(em){
       }else this.ds.append(data);
       
       if(this.checkCache(data)) this.cache.remove(data);
-      this.super.append(node);
+      this.Super(node);
       this.ds.counter.up();
       return node;
     },
@@ -341,7 +354,7 @@ require('em')('ds',function(em){
       
       
       if(this.checkCache(data)) this.cache.remove(data);
-      this.super.prepend(node);
+      this.Super(node);
       this.ds.counter.up();
       return node;
     },
@@ -364,7 +377,7 @@ require('em')('ds',function(em){
       
       if(this.checkCache(data)) this.cache.remove(data);
       this.ds.counter.down();
-      this.super.remove(node);
+      this.Super(node);
       return node;
     },
     removeAll: function(data){
@@ -382,7 +395,7 @@ require('em')('ds',function(em){
       util.each(res,function(e){ e.left = e.right = null; });
       
       if(this.checkCache(data)) this.cache.remove(data);
-      this.super.removeAll(res);
+      this.Super(res);
       return res;
     },
     findAll: function(data,fn){
@@ -402,7 +415,7 @@ require('em')('ds',function(em){
       if(res.length === 0) return;
 
       this.cacheIt(data,res);
-      this.super.findAll(res);
+      this.Super(res);
       return res;
     },
     find: function(data,fn){
@@ -425,7 +438,7 @@ require('em')('ds',function(em){
       if(!node) return false;
       
       this.cacheIt(data,node);
-      this.super.find(node);
+      this.Super(node);
       return node;
     },
     cascadeBy:function(fn){
@@ -435,7 +448,7 @@ require('em')('ds',function(em){
     }
   });
 
-  ds.GraphArc = as.Class.create('GraphArc',{
+  ds.GraphArc = as.Class.create({
     node: null,
     weight: null,
     init: function(n,w){ 
@@ -445,7 +458,7 @@ require('em')('ds',function(em){
     },
   });
   
-  ds.GraphNode = ds.Node.extend('GraphNode',{
+  ds.GraphNode = ds.Node.extend({
     init: function(d){
       this.Super(d);
       this.arcs = ds.List.make();
@@ -484,10 +497,17 @@ require('em')('ds',function(em){
     },
     compareData: function(data){
       return this.data === data;
+    },
+    reset: function(){
+      this.Super();
+      this.arcs.clear();
+      this.it.close();
+      this.arcs = null;
+      this.it = null;
     }
   });
  
-  ds.Graph = ds.DS.extend('Graph',{
+  ds.Graph = ds.DS.extend({
     init: function(){
       this.lists =  ds.List.make();
       this.it = this.lists.iterator();
@@ -500,6 +520,11 @@ require('em')('ds',function(em){
         return (dt === data ? dt: null);
       };
 
+    },
+    close: function(){
+      this.list.clear();
+      this.it.close();
+      this.dataMatrix = this.nodeMatrix = null;
     },
     node: function(d1){
       if(util.instanceOf(d1,ds.GraphNode) && !this.it.find(d1,this.nodeMatrix)) return this.lists.add(d1);
@@ -554,7 +579,7 @@ require('em')('ds',function(em){
 
   ds.GraphTraversal = ds.GT = {};
 
-  ds.GraphTraversalRoot = as.Class.create('GraphTraversal',{
+  ds.GraphTraversalRoot = as.Class.create({
       init: function(processor){
         this.graph = null;
         this.processor = processor;
@@ -576,7 +601,7 @@ require('em')('ds',function(em){
       }
   });
 
-  ds.GraphTraversal.DepthFirst = ds.GraphTraversal.DF = ds.GraphTraversalRoot.extend('DepthFirstGraph',{
+  ds.GraphTraversal.DepthFirst = ds.GraphTraversal.DF = ds.GraphTraversalRoot.extend({
     amplify: function(ac){
        if(!this.ready()) this.reset();
       return this._process(ac);
@@ -604,7 +629,7 @@ require('em')('ds',function(em){
      },
   });
 
-  ds.GraphTraversal.BF = ds.GraphTraversal.BreadthFirst = ds.GraphTraversalRoot.extend('BreadthFirstGraph',{
+  ds.GraphTraversal.BF = ds.GraphTraversal.BreadthFirst = ds.GraphTraversalRoot.extend({
     amplify: function(arc){
        if(!this.ready()) return this.reset();
         
@@ -639,13 +664,13 @@ require('em')('ds',function(em){
     }
   });
   
-  ds.GraphTraversal.DLDF = ds.GraphTraversal.DepthLimitedDF = ds.GraphTraversal.DepthFirst.extend('DepthLimited DepthFirst',{
+  ds.GraphTraversal.DLDF = ds.GraphTraversal.DepthLimitedDF = ds.GraphTraversal.DepthFirst.extend({
     init: function(processor,depth){
       this.Super(processor);
       this.depth  = this._dp = depth;
     },
     ready: function(){
-      return (this.super.ready() && this.hasDepth());
+      return (this.Super() && this.hasDepth());
     },
     _process: function(arc,promise){
       if(this.hasDepth()){
@@ -659,17 +684,17 @@ require('em')('ds',function(em){
     },
     reset: function(){
       this._dp = this.depth;
-      this.super.reset();
+      this.Super();
     },
   });
 
-  ds.GraphTraversal.DLBF = ds.GraphTraversal.DepthLimitedBF = ds.GraphTraversal.BreadthFirst.extend('DepthLimitedBreadthFirst',{
+  ds.GraphTraversal.DLBF = ds.GraphTraversal.DepthLimitedBF = ds.GraphTraversal.BreadthFirst.extend({
     init: function(processor,depth){
       this.Super(processor);
       this.depth  = this._dp = depth;
     },
     ready: function(){
-      return (this.super.ready() || this.hasDepth());
+      return (this.Super() || this.hasDepth());
     },
     amplify: function(arc){
        if(!this.ready() || !this.hasDepth()) return this.reset();
@@ -710,11 +735,11 @@ require('em')('ds',function(em){
     },
     reset: function(){
       this._dp = this.depth;
-      this.super.reset();
+      this.Super();
     }
   });
 
-  ds.GraphFilterCore = as.Class.create('GraphFilter',{
+  ds.GraphFilterCore = as.Class.create({
       init: function(processor){
         this.graph = null;
         this.key = null;
@@ -755,7 +780,7 @@ require('em')('ds',function(em){
 
   ds.GraphFilter = ds.GF = {};
   
-  ds.GraphFilter.DepthFirst = ds.GraphFilterCore.extend('DepthFirstFilter',{
+  ds.GraphFilter.DepthFirst = ds.GraphFilterCore.extend({
     init: function(fn,depth){
       if(util.isFunction(depth)){
           var fnv = fn;
@@ -768,7 +793,7 @@ require('em')('ds',function(em){
     }
   });
 
-  ds.GraphFilter.BreadthFirst = ds.GraphFilterCore.extend('BreadthFirstFilter',{
+  ds.GraphFilter.BreadthFirst = ds.GraphFilterCore.extend({
     init: function(fn,depth){
       if(util.isFunction(depth)){
           var fnv = fn;
